@@ -1,4 +1,4 @@
-#include <polynomial/polynomial.cuh>
+#include <polynomial/polynomial.hpp>
 
 __global__ void polynomial_expansion(float* __restrict__ input, float const* __restrict__ coeffs, std::size_t degree, std::size_t size)
 {
