@@ -1,8 +1,9 @@
 cmake_minimum_required(VERSION 3.10)
-project(polynomial VERSION 1.0.0 LANGUAGES CUDA)
+project(polynomial VERSION 1.0.0 LANGUAGES CXX CUDA)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+
 
 add_executable(polynomial
     src/main.cu
@@ -11,6 +12,10 @@ add_executable(polynomial
 
 add_executable(
     polynomial::polynomial ALIAS polynomial
+)
+
+target_link_libraries(
+    polynomial
 )
 
 target_include_directories(

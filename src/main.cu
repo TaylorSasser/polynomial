@@ -4,6 +4,7 @@
 #include <iostream>
 #include <charconv>
 #include <cstdio>
+#include <string>
 #include <algorithm>
 #include <chrono>
 
@@ -33,8 +34,8 @@ int main(int argc, char* argv[])
     auto const len  = read_cli_argument<std::size_t>(argv[1], "Unable to convert \"%s\" to std::size_t\n");
     auto const deg = read_cli_argument<std::size_t>(argv[2], "Unable to convert \"%s\" to std::size_t\n");
     */
-    std::size_t len = 2147483647;
-    std::size_t deg = 10000;
+    std::size_t len = (1 << 26);
+    std::size_t deg = 100000;
 
     float* host_values = new float[len];
     float* host_coeffs = new float[deg];
@@ -82,15 +83,11 @@ int main(int argc, char* argv[])
 
 
     auto end = std::chrono::system_clock::now();
-    auto time = std::chrono::duration_cast<std::chrono::nanoseconds>(end - beg).count();
+    std::chrono::duration<double> total_time = (end - beg);
+    double giga_flops = static_cast<double>(2 * deg * len) / total_time.count() / 1e9;
 
-    double total_time = static_cast<double>(time) / 1e9;
-
-    //Each cycle does one fma instruction, and an extra mul for the x^n.
-    double flops = static_cast<double>(3 * deg * len) / total_time / 1e9;
-
-    std::cout << "Seconds: " << total_time << '\n';
-    std::cout << "GFlops / Second: " << flops << '\n';
+    std::cout << "Seconds: " << total_time.count() << '\n';
+    std::cout << "GFlops / Second: " << giga_flops << '\n';
 
     return 0;
 }
