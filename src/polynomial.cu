@@ -1,10 +1,8 @@
 #include <polynomial/polynomial.hpp>
 
-__global__ void polynomial_expansion(float* __restrict__ input, float const* __restrict__ coeffs, std::size_t degree, std::size_t size)
+__global__ void polynomial_expansion(float* __restrict__ input, float const* __restrict__ coeffs, std::size_t const degree, std::size_t const size)
 {
     std::size_t index = blockIdx.x * blockDim.x + threadIdx.x;
-
-
 
     if (index >= size)
         return;
@@ -15,7 +13,7 @@ __global__ void polynomial_expansion(float* __restrict__ input, float const* __r
 
 
     #pragma unroll
-    for (size_t i = 0; i < degree; i++)
+    for (size_t i = 0; i <= degree; i++)
     {
         res += x * coeffs[i];
         power *= x;
