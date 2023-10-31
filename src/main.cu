@@ -7,6 +7,7 @@
 #include <string>
 #include <algorithm>
 #include <chrono>
+#include <iomanip>
 
 
 #define PROGRAM_EXIT(...) do{ std::fprintf(stderr,__VA_ARGS__); exit(1); } while(0)
@@ -71,19 +72,16 @@ int main(int argc, char* argv[])
         PROGRAM_EXIT("Error: %s %s\n ", cudaGetErrorName(err), cudaGetErrorString(err));
 
     cudaStream_t values_stream[streams];
-    for (int i = 0; i < streams; i++)
+    for (std::size_t i = 0; i < streams; i++)
     {
         if (auto err = cudaStreamCreate(values_stream + i); err != cudaSuccess)
             PROGRAM_EXIT("Error: %s %s\n ", cudaGetErrorName(err), cudaGetErrorString(err));
     }
 
-
     std::cout << "Streams: " << streams << '\n';
     std::cout << "Dimension: " << block_dimension << '\n';
     std::cout << "Grid Size: " << grid_dimension << '\n';
 
-
-    auto beg = std::chrono::system_clock::now();
 
     if (auto err = cudaMemcpyAsync(dev_coeffs, host_coeffs, deg * sizeof(float), cudaMemcpyHostToDevice, coeffs_stream); err != cudaSuccess)
         PROGRAM_EXIT("Coeffs Stream: %s %s\n ", cudaGetErrorName(err), cudaGetErrorString(err));
@@ -94,13 +92,22 @@ int main(int argc, char* argv[])
         if (auto err = cudaMemcpyAsync(dev_values + offset, host_values + offset, stream_data_len * sizeof(float), cudaMemcpyHostToDevice, values_stream[i]); err != cudaSuccess)
             PROGRAM_EXIT("Values Stream: %s %s\n ", cudaGetErrorName(err), cudaGetErrorString(err));
     }
-
     cudaStreamSynchronize(coeffs_stream);
 
+
+    cudaEvent_t beg_poly[streams];
+    cudaEvent_t end_poly[streams];
+    for (std::size_t i = 0; i < streams; i++)
+    {
+        cudaEventCreate(beg_poly + i);
+        cudaEventCreate(end_poly + i);
+    }
     for (std::size_t i = 0; i < streams; i++)
     {
         std::size_t offset = i * stream_data_len;
+        cudaEventRecord(beg_poly[i], values_stream[i]);
         polynomial_expansion<<<grid_dimension / streams, block_dimension, 0, values_stream[i]>>>(dev_values + offset, dev_coeffs, deg, stream_data_len);
+        cudaEventRecord(end_poly[i], values_stream[i]);
     }
 
     for (std::size_t i = 0; i < streams; i++)
@@ -109,8 +116,8 @@ int main(int argc, char* argv[])
         if (auto err = cudaMemcpyAsync(host_values + offset, dev_values + offset, stream_data_len * sizeof(float), cudaMemcpyDeviceToHost, values_stream[i]); err != cudaSuccess)
             PROGRAM_EXIT("Values Stream: %s %s\n ", cudaGetErrorName(err), cudaGetErrorString(err));
     }
+
     cudaDeviceSynchronize();
-    auto end = std::chrono::system_clock::now();
 
     for (std::size_t i = 0; i < len; i++)
     {
@@ -118,12 +125,16 @@ int main(int argc, char* argv[])
             std::cout << "host_values[" << i << "] should be " << deg << " not " << host_values[i] << '\n';
     }
 
+    std::cout << std::setprecision(16);
+    float total_time = 0;
+    cudaEventElapsedTime(&total_time, beg_poly[0], end_poly[streams - 1]);
 
-    std::chrono::duration<double> total_time = (end - beg);
-    double giga_flops = static_cast<double>(2 * deg * len) / total_time.count() / 1e9;
+    total_time /= 1e3;
+
+    double giga_flops = static_cast<double>(2 * deg * len) / total_time / 1e9;
 
 
-    std::cout << "Seconds: " << total_time.count() << '\n';
+    std::cout << "Seconds: " << total_time << '\n';
     std::cout << "GFlops / Second: " << giga_flops << '\n';
 
     return 0;

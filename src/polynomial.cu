@@ -1,6 +1,6 @@
 #include <polynomial/polynomial.hpp>
 
-__global__ void polynomial_expansion(float* __restrict__ input, float const* __restrict__ coeffs, std::size_t const degree, std::size_t const size)
+__global__ void polynomial_expansion(float* __restrict__ input, float const* __restrict__ coeffs, std::size_t const degree, std::size_t size)
 {
     std::size_t index = blockIdx.x * blockDim.x + threadIdx.x;
 
