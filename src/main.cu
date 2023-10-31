@@ -35,23 +35,15 @@ int main(int argc, char* argv[])
     auto const deg = read_cli_argument<std::size_t>(argv[2], "Unable to convert \"%s\" to std::size_t\n");
     */
     std::size_t len = (1 << 26);
-    std::size_t deg = 100000;
+    std::size_t deg = 10000;
+
+    deg += 1;
 
     float* host_values = new float[len];
     float* host_coeffs = new float[deg];
 
-    std::cout << "Generating values and coeffs (may take a moment)...\n";
-
-
-    std::random_device dev{};
-    std::mt19937 rng(dev());
-
-    std::uniform_real_distribution<float> coeff_dist(-1, 1);
-
-    std::iota(host_values + 0, host_values + len, 1);
-    std::generate(host_coeffs + 0, host_coeffs + deg, [&]() {
-          return coeff_dist(rng);
-    });
+    std::fill(host_values + 0, host_values + len, 1);
+    std::fill(host_coeffs + 0, host_coeffs + deg, 1);
 
 
     float* dev_values = nullptr;
@@ -80,6 +72,7 @@ int main(int argc, char* argv[])
 
     if (auto err = cudaMemcpy(host_values, dev_values, sizeof(float) * len, cudaMemcpyDeviceToHost))
         PROGRAM_EXIT("Error: %s %s\n ", cudaGetErrorName(err), cudaGetErrorString(err));
+
 
 
     auto end = std::chrono::system_clock::now();

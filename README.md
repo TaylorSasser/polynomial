@@ -6,11 +6,11 @@ Run in project root directory
 
 Create the debug build
 
-```cmake -S . -B build/debug -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_TOOLCHAIN_FILE=<path-to-vcpkg.cmake> -DCMAKE_CUDA_COMPILER=/usr/local/cuda-12.1/bin/nvcc```
+```cmake -S . -B build/debug -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CUDA_COMPILER=/usr/local/cuda-12.1/bin/nvcc```
 
 And the release build
 
-```cmake -S . -B build/release -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=<path-to-vcpkg.cmake> -DCMAKE_CUDA_COMPILER=/usr/local/cuda-12.1/bin/nvcc```
+```cmake -S . -B build/release -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CUDA_COMPILER=/usr/local/cuda-12.1/bin/nvcc```
 
 
 To Build

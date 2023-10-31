@@ -14,10 +14,6 @@ add_executable(
     polynomial::polynomial ALIAS polynomial
 )
 
-target_link_libraries(
-    polynomial
-)
-
 target_include_directories(
     polynomial
     PUBLIC

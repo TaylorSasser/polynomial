@@ -4,6 +4,8 @@ __global__ void polynomial_expansion(float* __restrict__ input, float const* __r
 {
     std::size_t index = blockIdx.x * blockDim.x + threadIdx.x;
 
+
+
     if (index >= size)
         return;
 
