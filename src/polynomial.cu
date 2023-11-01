@@ -12,7 +12,6 @@ __global__ void polynomial_expansion(float* __restrict__ input, float const* __r
     float power = 1;
 
 
-    #pragma unroll
     for (size_t i = 0; i <= degree; i++)
     {
         res += x * coeffs[i];
@@ -21,3 +20,5 @@ __global__ void polynomial_expansion(float* __restrict__ input, float const* __r
 
     input[index] = res;
 }
+
+
