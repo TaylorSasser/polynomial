@@ -33,7 +33,7 @@ auto read_cli_argument(std::string str, char const* error_message)
 int main(int argc, char* argv[])
 {
     if (argc != 3)
-        PROGRAM_EXIT("Error: Bad command line parameters\nUsage: ./polynomial <num> <deg>\nEx ./polynomial 10000 50");
+        PROGRAM_EXIT("Error: Bad command line parameters\nUsage: ./polynomial <num> <deg>\nEx ./polynomial 3500000000 30000");
     auto const len = (read_cli_argument<std::size_t>(argv[1], "Unable to convert \"%s\" to std::size_t\n") / streams) * streams;
     auto const deg = read_cli_argument<std::size_t>(argv[2], "Unable to convert \"%s\" to std::size_t\n") + 1;
 
@@ -121,22 +121,20 @@ int main(int argc, char* argv[])
 
     auto end = std::chrono::high_resolution_clock::now();
 
-    for (std::size_t i = 0; i < len; i++)
-    {
-        if (fabs(host_values[i] - static_cast<float>(deg)) > 0.01)
-            std::cout << "host_values[" << i << "] should be " << deg << " not " << host_values[i] << '\n';
-    }
-
     std::cout << std::setprecision(16);
-    float total_time = 0;
-    cudaEventElapsedTime(&total_time, beg_poly[streams - 1], end_poly[streams - 1]);
-    total_time /= 1e3;
+    float kernel_time = 0;
+    cudaEventElapsedTime(&kernel_time, beg_poly[streams - 1], end_poly[streams - 1]);
+    kernel_time /= 1e3;
 
-    double giga_flops = static_cast<double>(2 * (deg + 1) * len) / total_time / 1e9;
+    double program_time = (end - beg).count() / 1e9;
+    double giga_flops = static_cast<double>(2 * (deg + 1) * len) / kernel_time / 1e9;
+    double bandwidth = static_cast<float>((2 * len) + deg) * sizeof(float) / (program_time - kernel_time) / 1e9;
 
 
-    std::cout << "Application Seconds: " << std::chrono::duration_cast<std::chrono::seconds>(end - beg).count() << '\n';
-    std::cout << "Kernel Seconds: " << total_time << '\n';
+
+    std::cout << "Program Seconds: " << program_time << '\n';
+    std::cout << "Kernel Seconds: " << kernel_time << '\n';
+    std::cout << "Memory GBs: " << bandwidth << '\n';
     std::cout << "GFlops / Second: " << giga_flops << '\n';
 
     return 0;
