@@ -38,8 +38,6 @@ int main(int argc, char* argv[])
     auto const deg = read_cli_argument<std::size_t>(argv[2], "Unable to convert \"%s\" to std::size_t\n") + 1;
 
     std::size_t stream_data_len = len / streams;
-    std::size_t block_dimension = 512;
-    std::size_t grid_dimension = (len + block_dimension - 1) / block_dimension;
 
     float* host_values = nullptr;
     float* host_coeffs = nullptr;
@@ -53,6 +51,26 @@ int main(int argc, char* argv[])
     std::fill(host_values + 0, host_values + len, 1);
     std::fill(host_coeffs + 0, host_coeffs + deg, 1);
 
+    int device_count = 0;
+    int streaming_multiprocessor_count = 0;
+
+    if (auto err = cudaGetDeviceCount(&device_count); err != cudaSuccess)
+        PROGRAM_EXIT("Error: %s %s\n", cudaGetErrorName(err), cudaGetErrorString(err));
+    for (int i = 0; i < device_count; i++)
+    {
+        cudaDeviceProp properties;
+        if (auto err = cudaGetDeviceProperties_v2(&properties, i); err != cudaSuccess)
+            PROGRAM_EXIT("Error: %s %s\n", cudaGetErrorName(err), cudaGetErrorString(err));
+
+        if (properties.multiProcessorCount > streaming_multiprocessor_count)
+        {
+            streaming_multiprocessor_count = properties.multiProcessorCount;
+            if (auto err = cudaSetDevice(i); err != cudaSuccess)
+                PROGRAM_EXIT("Error: %s %s\n", cudaGetErrorName(err), cudaGetErrorString(err));
+        }
+    }
+
+
     float* dev_values = nullptr;
     float* dev_coeffs = nullptr;
 
@@ -62,8 +80,6 @@ int main(int argc, char* argv[])
     cudaEvent_t end_poly[streams];
 
     std::cout << "Streams: " << streams << '\n';
-    std::cout << "Dimension: " << block_dimension << '\n';
-    std::cout << "Grid Size: " << grid_dimension << '\n';
 
 
     if (auto err = cudaMalloc(&dev_values, sizeof(float) * len))
@@ -103,8 +119,11 @@ int main(int argc, char* argv[])
     {
         std::size_t offset = i * stream_data_len;
         cudaEventRecord(beg_poly[i], values_stream[i]);
-        polynomial_expansion<<<grid_dimension / streams, block_dimension, 0, values_stream[i]>>>(dev_values + offset, dev_coeffs, deg, stream_data_len);
+        polynomial_expansion<<<1,1, 1024 * sizeof(float), values_stream[i]>>>(dev_values + offset, dev_coeffs, deg, stream_data_len);
         cudaEventRecord(end_poly[i], values_stream[i]);
+
+
+        std::cout << cudaGetErrorString(cudaGetLastError()) << '\n';
     }
 
     for (std::size_t i = 0; i < streams; i++)
@@ -120,6 +139,8 @@ int main(int argc, char* argv[])
     }
 
     auto end = std::chrono::high_resolution_clock::now();
+
+    std::cout << host_values[100] << '\n';
 
     std::cout << std::setprecision(16);
     float kernel_time = 0;
