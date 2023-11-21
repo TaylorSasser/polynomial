@@ -1,7 +1,6 @@
 #include <polynomial/polynomial.hpp>
 #include <iostream>
 #include <random>
-#include <iostream>
 #include <charconv>
 #include <cstdio>
 #include <string>
@@ -29,12 +28,18 @@ auto read_cli_argument(std::string str, char const* error_message)
     static_assert("Invalid CLI argument type");
 }
 
+std::int32_t div_up(std::int32_t x, std::int32_t constant)
+{
+    return (x + constant - 1) / constant;
+}
+
+
 
 int main(int argc, char* argv[])
 {
     if (argc != 3)
         PROGRAM_EXIT("Error: Bad command line parameters\nUsage: ./polynomial <num> <deg>\nEx ./polynomial 3500000000 30000");
-    auto const len = (read_cli_argument<std::size_t>(argv[1], "Unable to convert \"%s\" to std::size_t\n") / streams) * streams;
+    auto const len = (read_cli_argument<std::size_t>(argv[1], "Unable to convert \"%s\" to std::size_t\n"));
     auto const deg = read_cli_argument<std::size_t>(argv[2], "Unable to convert \"%s\" to std::size_t\n") + 1;
 
     std::size_t stream_data_len = len / streams;
@@ -56,6 +61,7 @@ int main(int argc, char* argv[])
 
     if (auto err = cudaGetDeviceCount(&device_count); err != cudaSuccess)
         PROGRAM_EXIT("Error: %s %s\n", cudaGetErrorName(err), cudaGetErrorString(err));
+
     for (int i = 0; i < device_count; i++)
     {
         cudaDeviceProp properties;
@@ -70,7 +76,6 @@ int main(int argc, char* argv[])
         }
     }
 
-
     float* dev_values = nullptr;
     float* dev_coeffs = nullptr;
 
@@ -79,17 +84,12 @@ int main(int argc, char* argv[])
     cudaEvent_t beg_poly[streams];
     cudaEvent_t end_poly[streams];
 
-    std::cout << "Streams: " << streams << '\n';
-
-
     if (auto err = cudaMalloc(&dev_values, sizeof(float) * len))
         PROGRAM_EXIT("Error: %s %s\n ", cudaGetErrorName(err), cudaGetErrorString(err));
     if (auto err = cudaMalloc(&dev_coeffs, sizeof(float) * deg))
         PROGRAM_EXIT("Error: %s %s\n ", cudaGetErrorName(err), cudaGetErrorString(err));
     if (auto err = cudaStreamCreateWithFlags(&coeffs_stream, cudaStreamNonBlocking); err != cudaSuccess)
         PROGRAM_EXIT("Error: %s %s\n ", cudaGetErrorName(err), cudaGetErrorString(err));
-
-
 
     for (std::size_t i = 0; i < streams; i++)
     {
@@ -99,8 +99,6 @@ int main(int argc, char* argv[])
         cudaEventCreate(end_poly + i);
     }
 
-    auto beg = std::chrono::high_resolution_clock::now();
-
     if (auto err = cudaMemcpyAsync(dev_coeffs, host_coeffs, deg * sizeof(float), cudaMemcpyHostToDevice, coeffs_stream); err != cudaSuccess)
         PROGRAM_EXIT("Coeffs Stream: %s %s\n ", cudaGetErrorName(err), cudaGetErrorString(err));
 
@@ -109,20 +107,20 @@ int main(int argc, char* argv[])
         std::size_t offset = i * stream_data_len;
         if (auto err = cudaMemcpyAsync(dev_values + offset, host_values + offset, stream_data_len * sizeof(float), cudaMemcpyHostToDevice, values_stream[i]); err != cudaSuccess)
             PROGRAM_EXIT("Values Stream: %s %s\n ", cudaGetErrorName(err), cudaGetErrorString(err));
-
     }
 
-    //We need to wait before the coeff's are done first.
-    cudaStreamSynchronize(coeffs_stream);
 
+    cudaStreamSynchronize(coeffs_stream);
+    dim3 grid_dim(div_up(len, 1024));
+    dim3 block_dim(1024);
+
+    auto beg = std::chrono::high_resolution_clock::now();
     for (std::size_t i = 0; i < streams; i++)
     {
         std::size_t offset = i * stream_data_len;
         cudaEventRecord(beg_poly[i], values_stream[i]);
-        polynomial_expansion<<<1,1, 1024 * sizeof(float), values_stream[i]>>>(dev_values + offset, dev_coeffs, deg, stream_data_len);
+        polynomial_expansion<<<grid_dim, block_dim, 1024 * sizeof(float), values_stream[i]>>>(dev_values + offset, dev_coeffs, deg, stream_data_len);
         cudaEventRecord(end_poly[i], values_stream[i]);
-
-
         std::cout << cudaGetErrorString(cudaGetLastError()) << '\n';
     }
 
@@ -137,18 +135,16 @@ int main(int argc, char* argv[])
     {
         cudaStreamSynchronize(values_stream[i]);
     }
-
     auto end = std::chrono::high_resolution_clock::now();
 
-    std::cout << host_values[100] << '\n';
 
     std::cout << std::setprecision(16);
     float kernel_time = 0;
-    cudaEventElapsedTime(&kernel_time, beg_poly[streams - 1], end_poly[streams - 1]);
+    cudaEventElapsedTime(&kernel_time, beg_poly[0], end_poly[streams - 1]);
     kernel_time /= 1e3;
 
     double program_time = (end - beg).count() / 1e9;
-    double giga_flops = static_cast<double>(2 * (deg + 1) * len) / kernel_time / 1e9;
+    double giga_flops = static_cast<double>(3 * (deg + 1) * len) / kernel_time / 1e9;
     double bandwidth = static_cast<float>((2 * len) + deg) * sizeof(float) / (program_time - kernel_time) / 1e9;
 
 
