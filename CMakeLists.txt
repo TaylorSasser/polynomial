@@ -7,7 +7,6 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 
 add_executable(polynomial
     src/main.cu
-    src/polynomial.cu
 )
 
 add_executable(

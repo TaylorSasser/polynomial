@@ -26,7 +26,6 @@ echo '' > $output_csv
 # Loop over degrees and sizes
 for degree in "${degrees[@]}"; do
     for size in "${sizes[@]}"; do
-        # Run the polynomial calculation and append output to the CSV file
         /usr/local/cuda/bin/ncu --csv --metrics $metrics_csv ./build/release/polynomial $degree $size >> $output_csv
     done
 done
